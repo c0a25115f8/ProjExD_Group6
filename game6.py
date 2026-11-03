@@ -43,6 +43,35 @@ class Apple(pg.sprite.Sprite):
         if self.rect.top > 600:
             self.kill() # 画面外に出たら消去
 
+
+class SceneManager:
+    def __init__(self):
+        self.font_l = pg.font.SysFont(None, 80)
+        self.font_s = pg.font.SysFont(None, 40)
+        self.overlay = pg.Surface((800, 600))
+        self.overlay.set_alpha(180)
+    def handle_event(self, event, current_state):
+        if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+            if current_state == "TITLE":
+                return "PLAY"
+        return current_state
+    def draw(self, screen, state, score):
+        if state == "TITLE":
+            self.overlay.fill((0, 0, 0))
+            screen.blit(self.overlay, (0, 0))
+            title = self.font_l.render("ITEM CATCH PANIC", True, (255, 255, 255))
+            nav = self.font_s.render("Press SPACE to Start", True, (200, 200, 200))
+            screen.blit(title, (400 - title.get_width()//2, 200))
+            screen.blit(nav, (400 - nav.get_width()//2, 350))
+        elif state == "RESULT":
+            self.overlay.fill((50, 0, 0))
+            screen.blit(self.overlay, (0, 0))
+            result = self.font_l.render("TIME UP!", True, (255, 50, 50))
+            score_t = self.font_s.render(f"FINAL SCORE: {score}", True, (255, 255, 255))
+            screen.blit(result, (400 - result.get_width()//2, 200))
+            screen.blit(score_t, (400 - score_t.get_width()//2, 300))
+
+
 def main():
     pg.init()
     screen = pg.display.set_mode((800, 600))
@@ -60,6 +89,9 @@ def main():
     start_ticks = pg.time.get_ticks()
     game_duration = 60000 # 60秒
 
+    game_state = "TITLE"
+    scene_manager = SceneManager()
+
     # ---------------------------------------------------------
     # 【拡張機能の初期化領域】
     # ---------------------------------------------------------
@@ -72,6 +104,9 @@ def main():
             if event.type == pg.QUIT:
                 pg.quit()
                 sys.exit()
+
+
+            game_state = scene_manager.handle_event(event, game_state)
 
         # 経過時間の計算
         seconds_left = max(0, (game_duration - (pg.time.get_ticks() - start_ticks)) // 1000)
@@ -99,6 +134,9 @@ def main():
         all_sprites.draw(screen)
 
         # UI描画
+    
+        scene_manager.draw(screen, game_state, score)
+
         score_text = font.render(f"Score: {score}", True, (0, 0, 0))
         time_text = font.render(f"Time: {seconds_left}", True, (0, 0, 0))
         screen.blit(score_text, (10, 10))
@@ -106,7 +144,10 @@ def main():
 
         if seconds_left == 0:
             end_text = font.render("TIME UP!", True, (255, 0, 0))
-            screen.blit(end_text, (350, 300))
+            final_score_text = font.render(f"FINAL SCORE: {score}", True, (255, 0, 0))
+
+            screen.blit(end_text, (400 - end_text.get_width() // 2, 260))
+            screen.blit(final_score_text, (400 - final_score_text.get_width() // 2, 310))
 
         pg.display.update()
         clock.tick(60)
