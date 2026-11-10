@@ -423,6 +423,32 @@ class BossManager:
 
 # =========================================================
 # 【担当者4：コンボシステムのエリア】
+class ComboSystem:
+    def __init__(self):
+        self.combo = 0
+        self.last_time = 0
+        self.font = pg.font.SysFont(None, 50)
+        self.effects = []
+    def update(self):
+        if self.combo > 0 and (pg.time.get_ticks() - self.last_time) > 2000:
+            self.combo = 0
+        for e in self.effects[:]:
+            e['y'] -= 2
+            e['life'] -= 1
+            if e['life'] <= 0:
+                self.effects.remove(e)
+    def add_combo(self):
+        self.combo += 1
+        self.last_time = pg.time.get_ticks()
+        bonus = 0
+        if self.combo > 1:
+            bonus = self.combo * 2
+            self.effects.append({'text': f"{self.combo} COMBO! +{bonus}", 'y': 300, 'life': 30})
+        return bonus
+    def draw(self, screen):
+        for e in self.effects:
+            text = self.font.render(e['text'], True, (255, 100, 50))
+            screen.blit(text, (400 - text.get_width()//2, e['y']))
 # =========================================================
 
 
@@ -447,6 +473,89 @@ class Player(pg.sprite.Sprite):
             self.rect.x -= 8
         if keys[pg.K_RIGHT] and self.rect.right < 800:
             self.rect.x += 8
+
+
+class PlayerEx:
+    """
+    プレイヤーの追加機能を管理するクラス。
+
+    Shiftキーを押しながら左右キーを押すことでプレイヤーを移動させ、
+    移動中にパーティクル（青い円）を発生させる。
+    ダッシュのスタミナをさくせい
+    """
+    def __init__(self, player: Player) -> None:
+        self.player = player
+        self.particles = [] # パーティクルの位置と大きさを保存するリスト
+
+        # スタミナ設定
+        self.max_stamina = 100
+        self.stamina = 100
+
+        self.stamina_cost = 2       # ダッシュ中の消費量
+        self.stamina_recovery = 0.5 # 通常時の回復量
+
+        self.is_dashing = False
+
+    
+    def update(self) -> None:
+        keys = pg.key.get_pressed()
+
+        self.is_dashing = False
+
+        # Shiftキーを押していて、スタミナが残っている場合
+        if keys[pg.K_LSHIFT] and self.stamina >= self.stamina_cost:
+
+            self.is_dashing = True
+
+            # ダッシュ移動
+            if keys[pg.K_LEFT] and self.player.rect.left > 0:
+                self.player.rect.x -= 12
+            if keys[pg.K_RIGHT] and self.player.rect.right < 800:
+                self.player.rect.x += 12
+
+            # スタミナ消費
+            self.stamina -= self.stamina_cost
+            self.stamina = max(0, self.stamina)
+
+            # パーティクル生成
+            self.particles.append([self.player.rect.centerx,self.player.rect.bottom,10])
+        else:
+            # ダッシュしていないときだけ回復
+            self.stamina = min(self.max_stamina,self.stamina + self.stamina_recovery)
+
+        # パーティクル更新
+        for p in self.particles[:]:
+            p[1] -= 2
+            p[2] -= 0.5
+            if p[2] <= 0:
+                self.particles.remove(p)
+
+    def draw(self, screen):
+        # パーティクル描画
+        for p in self.particles:
+            pg.draw.circle(screen,(100, 200, 255),(int(p[0]), int(p[1])),int(p[2]))
+    def draw_stamina(self, screen):
+        """スタミナゲージを描画"""
+        x = 10
+        y = 560
+        width = 200
+        height = 20
+        # 背景
+        pg.draw.rect(screen,(100, 100, 100),(x, y, width, height))
+        # スタミナ割合
+        ratio = self.stamina / self.max_stamina
+        # 残量に応じて色を変更
+        if ratio > 0.5:
+            color = (0, 200, 0)
+        elif ratio > 0.2:
+            color = (255, 200, 0)
+        else:
+            color = (255, 0, 0)
+        # ゲージ
+        pg.draw.rect(screen,color,(x, y, int(width * ratio), height))
+        # 枠線
+        pg.draw.rect(screen,(0, 0, 0),(x, y, width, height), 2)
+
 
 class Apple(pg.sprite.Sprite):
     def __init__(self):
@@ -476,6 +585,7 @@ def main():
 
     player = Player()
     all_sprites.add(player)
+    player_ex = PlayerEx(player)
 
     score = 0
     start_ticks = pg.time.get_ticks()
@@ -485,8 +595,22 @@ def main():
     # 【各機能の初期化（インスタンス生成）エリア】
     # =========================================================
     # 各担当者はここに自分のクラスをインスタンス化するコードを書く
+    combo_system = ComboSystem()
     
+
     boss_manager = BossManager()
+
+
+    score = 0
+    start_ticks = pg.time.get_ticks()
+    game_duration = 60000 # 60秒
+    
+    # 担当者5用：ゲームの進行状態
+    game_state = "PLAY" 
+
+    # --- 背景画像の読み込みとサイズ調整（これを追記） ---
+    bg_image = pg.image.load("haikei1.png")
+    bg_image = pg.transform.scale(bg_image, (800, 600))
 
     while True:
         # --- イベント処理 ---
@@ -505,11 +629,14 @@ def main():
         # --- 更新処理 (Update) ---
         if seconds_left > 0:
             all_sprites.update()
+            player_ex.update()
             
             # =========================================================
             # 【各機能の更新（update）呼び出しエリア】
             # =========================================================
             # 各担当者はここに自身のupdate処理を書く
+            combo_system.update()
+
 
             score += boss_manager.update(player.rect)
 
@@ -527,21 +654,26 @@ def main():
                 # 【キャッチ時の追加イベント呼び出しエリア】
                 # =========================================================
                 # 担当者4（コンボ）などはここに処理を書く
+                score += combo_system.add_combo()
         
         # --- 描画処理 (Draw) ---
-        screen.fill((240, 255, 240))
+        #screen.fill((240, 255, 240))
+        screen.blit(bg_image, (0, 0))
         all_sprites.draw(screen)
+        player_ex.draw(screen)
+        player_ex.draw_stamina(screen)
 
         # =========================================================
         # 【各機能の描画（draw）呼び出しエリア】
         # =========================================================
         # 各担当者はここに自身のdraw処理を書く
+        combo_system.draw(screen)
 
         boss_manager.draw(screen)
 
         # 共通：UI描画
-        score_text = font.render(f"Score: {score}", True, (0, 0, 0))
-        time_text = font.render(f"Time: {seconds_left}", True, (0, 0, 0))
+        score_text = font.render(f"Score: {score}", True, (0, 255, 255))
+        time_text = font.render(f"Time: {seconds_left}", True, (0, 255, 255))
         screen.blit(score_text, (10, 10))
         screen.blit(time_text, (680, 10))
 
