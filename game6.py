@@ -112,6 +112,16 @@ def main():
     # 各担当者はここに自分のクラスをインスタンス化するコードを書く
     combo_system = ComboSystem()
     
+    score = 0
+    start_ticks = pg.time.get_ticks()
+    game_duration = 60000 # 60秒
+    
+    # 担当者5用：ゲームの進行状態
+    game_state = "PLAY" 
+
+    # --- 背景画像の読み込みとサイズ調整（これを追記） ---
+    bg_image = pg.image.load("haikei1.png")
+    bg_image = pg.transform.scale(bg_image, (800, 600))
     while True:
         # --- イベント処理 ---
         for event in pg.event.get():
@@ -154,7 +164,8 @@ def main():
                 score += combo_system.add_combo()
         
         # --- 描画処理 (Draw) ---
-        screen.fill((240, 255, 240))
+        #screen.fill((240, 255, 240))
+        screen.blit(bg_image, (0, 0))
         all_sprites.draw(screen)
 
         # =========================================================
@@ -164,8 +175,8 @@ def main():
         combo_system.draw(screen)
 
         # 共通：UI描画
-        score_text = font.render(f"Score: {score}", True, (0, 0, 0))
-        time_text = font.render(f"Time: {seconds_left}", True, (0, 0, 0))
+        score_text = font.render(f"Score: {score}", True, (0, 255, 255))
+        time_text = font.render(f"Time: {seconds_left}", True, (0, 255, 255))
         screen.blit(score_text, (10, 10))
         screen.blit(time_text, (680, 10))
 
