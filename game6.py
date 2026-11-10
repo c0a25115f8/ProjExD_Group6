@@ -694,7 +694,7 @@ def main():
     game_duration = 60000 # 60秒
     
     # 担当者5用：ゲームの進行状態
-    game_state = "PLAY" 
+    
 
     # --- 背景画像の読み込みとサイズ調整（これを追記） ---
     bg_image = pg.image.load("haikei1.png")
